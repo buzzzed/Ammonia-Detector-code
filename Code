@@ -1,0 +1,90 @@
+// Define conversion factor
+float ppmPerVolt = 106734.4346;  // ppm per Volt
+
+// Flag to indicate if median values have been calculated
+bool medianCalculated = false;
+
+void setup() {
+  pinMode(A0, INPUT);  // Set analog pin A0 as input
+  pinMode(A1, OUTPUT);
+  pinMode(A2, OUTPUT);
+  pinMode(A3, OUTPUT);
+  pinMode(A4, OUTPUT);
+  digitalWrite(A4, HIGH);
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Calculate median values only if not already calculated
+  if (!medianCalculated) {
+    // Number of samples to collect
+    const int numSamples = 5;
+    // Array to store voltage readings
+    float voltageReadings[numSamples];
+    // Array to store ppm readings
+    float ppmReadings[numSamples];
+
+    // Collect samples
+    for (int i = 0; i < numSamples; i++) {
+      int sensorValue = analogRead(A0);
+      float voltage = sensorValue * (5.0 / 1023.0);  // Convert analog reading to voltage
+      voltageReadings[i] = voltage;
+
+      // Convert voltage to NaCl concentration
+      float concentration = voltage * ppmPerVolt - 415.501;
+      ppmReadings[i] = concentration;
+
+      delay(1000); // Delay 1 second between readings
+    }
+
+    // Calculate median voltage
+    float medianVoltage = median(voltageReadings, numSamples);
+    // Calculate median ppm
+    float medianPPM = median(ppmReadings, numSamples);
+
+    // Print the median values
+    Serial.print("Median Voltage: ");
+    Serial.print(medianVoltage, 3);
+    Serial.print(" V, Median Concentration: ");
+    Serial.print(medianPPM, 3);
+    Serial.println(" ppm NaCl");
+
+    // Output control based on median concentration
+    if (medianPPM <= 1700) {
+      digitalWrite(A1, HIGH);
+      digitalWrite(A2, LOW);
+      digitalWrite(A3, LOW);
+    } else if (medianPPM > 1700 && medianPPM <= 3400) {
+      digitalWrite(A1, LOW);
+      digitalWrite(A2, HIGH);
+      digitalWrite(A3, LOW);
+    } else {
+      digitalWrite(A1, LOW);
+      digitalWrite(A2, LOW);
+      digitalWrite(A3, HIGH);
+    }
+
+    // Set the flag to true to indicate that median values are calculated
+    medianCalculated = true;
+  }
+}
+
+// Function to calculate median of an array
+float median(float arr[], int n) {
+  // Sort the array
+  for (int i = 0; i < n - 1; i++) {
+    for (int j = 0; j < n - i - 1; j++) {
+      if (arr[j] > arr[j + 1]) {
+        float temp = arr[j];
+        arr[j] = arr[j + 1];
+        arr[j + 1] = temp;
+      }
+    }
+  }
+  // Calculate median
+  if (n % 2 == 0) {
+    return (arr[n / 2 - 1] + arr[n / 2]) / 2.0;
+  } else {
+    return arr[n / 2];
+  }
+}
